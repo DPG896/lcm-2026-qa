@@ -1,0 +1,27 @@
+{
+  "promptTitle": "Share your question or answer for today's session",
+  "activeId": "1795721972782-pusj9",
+  "submissions": [
+    {
+      "id": "1795721988102-9gebp",
+      "sender": "Carl C.",
+      "text": "Ewan ko sayo.",
+      "status": "approved",
+      "createdAt": "2026-11-26T19:39:48.102Z"
+    },
+    {
+      "id": "1795721972782-pusj9",
+      "sender": "Denzel D.",
+      "text": "Hello, bakit ampogi ko?",
+      "status": "approved",
+      "createdAt": "2026-11-26T19:39:32.782Z"
+    },
+    {
+      "id": "1795721931988-71ht3",
+      "sender": "Ewan",
+      "text": "Bading",
+      "status": "approved",
+      "createdAt": "2026-11-26T19:38:51.988Z"
+    }
+  ]
+}

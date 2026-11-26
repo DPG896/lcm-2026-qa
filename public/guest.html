@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Session Q&A</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="guest-wrapper">
+    <section class="guest-card">
+      <span class="badge">Live Delegate Portal</span>
+      <h1 id="prompt-title">Share your question or answer for today's session</h1>
+      <p class="subtitle">Your submission will be reviewed by the moderators before appearing on the main screen.</p>
+
+      <form id="qa-form">
+        <div class="form-group">
+          <label for="sender">Your Name / Team (optional)</label>
+          <input id="sender" type="text" maxlength="60" placeholder="e.g., Alex M. or Table 4" />
+        </div>
+
+        <div class="form-group">
+          <label for="response-text">Your Question or Answer *</label>
+          <textarea
+            id="response-text"
+            maxlength="600"
+            required
+            placeholder="Type your response here..."
+          ></textarea>
+          <div class="char-count"><span id="char-current">0</span> / 600</div>
+        </div>
+
+        <button id="submit-btn" type="submit" class="btn btn-primary btn-full">
+          Submit Response
+        </button>
+      </form>
+
+      <div id="status-banner" class="status-banner" role="status"></div>
+    </section>
+  </main>
+
+  <script>
+    const promptTitleEl = document.getElementById("prompt-title");
+    const form = document.getElementById("qa-form");
+    const senderInput = document.getElementById("sender");
+    const textInput = document.getElementById("response-text");
+    const charCurrent = document.getElementById("char-current");
+    const submitBtn = document.getElementById("submit-btn");
+    const statusBanner = document.getElementById("status-banner");
+
+    async function loadPrompt() {
+      try {
+        const res = await fetch("/api/prompt");
+        const data = await res.json();
+        if (data.ok && data.promptTitle) {
+          promptTitleEl.textContent = data.promptTitle;
+        }
+      } catch (_) {}
+    }
+
+    textInput.addEventListener("input", () => {
+      charCurrent.textContent = textInput.value.length;
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusBanner.className = "status-banner";
+      statusBanner.textContent = "";
+
+      const text = textInput.value.trim();
+      if (!text) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+
+      try {
+        const res = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sender: senderInput.value.trim(),
+            text
+          })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          textInput.value = "";
+          charCurrent.textContent = "0";
+          statusBanner.className = "status-banner success";
+          statusBanner.textContent = "Submitted! Your entry is now in the moderator queue.";
+        } else {
+          throw new Error(data.error || "Failed to submit.");
+        }
+      } catch (err) {
+        statusBanner.className = "status-banner error";
+        statusBanner.textContent = err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Response";
+      }
+    });
+
+    loadPrompt();
+  </script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facilitator Moderation Panel</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <h1>Facilitator Moderation Panel</h1>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button id="clear-screen-btn" class="btn btn-danger" type="button" style="display:none;">
+        Clear Monitor Screen
+      </button>
+      <a href="/monitor" target="_blank" class="btn btn-outline" style="text-decoration:none;">
+        Open Monitor UI
+      </a>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <!-- PIN Gate -->
+    <section id="login-panel" class="panel" style="max-width:420px; margin:2rem auto;">
+      <h2>Facilitator Access</h2>
+      <p class="subtitle">Enter the Facilitator PIN to review and approve delegate submissions.</p>
+      <form id="pin-form">
+        <div class="form-group">
+          <label for="pin-input">PIN Code</label>
+          <input id="pin-input" type="password" placeholder="Default: 2026" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Unlock Dashboard</button>
+      </form>
+      <div id="login-error" class="status-banner error"></div>
+    </section>
+
+    <!-- Dashboard -->
+    <div id="dashboard" style="display:none;">
+      <section class="panel">
+        <label for="session-prompt-input">Active Session Question / Prompt (shown on Guest &amp; Monitor UI)</label>
+        <div class="prompt-bar">
+          <input id="session-prompt-input" type="text" maxlength="200" />
+          <button id="save-prompt-btn" class="btn btn-primary" type="button">Update Prompt</button>
+        </div>
+      </section>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-filter="pending">Pending (<span id="count-pending">0</span>)</button>
+        <button class="tab-btn" data-filter="approved">Approved (<span id="count-approved">0</span>)</button>
+        <button class="tab-btn" data-filter="rejected">Rejected (<span id="count-rejected">0</span>)</button>
+        <button class="tab-btn" data-filter="all">All (<span id="count-all">0</span>)</button>
+      </div>
+
+      <section id="submission-list" class="submission-list"></section>
+    </div>
+  </main>
+
+  <script>
+    let pin = sessionStorage.getItem("facilitator_pin") || "";
+    let currentFilter = "pending";
+    let allSubmissions = [];
+    let activeId = null;
+    let pollTimer = null;
+
+    const loginPanel = document.getElementById("login-panel");
+    const dashboard = document.getElementById("dashboard");
+    const loginError = document.getElementById("login-error");
+    const pinForm = document.getElementById("pin-form");
+    const pinInput = document.getElementById("pin-input");
+    const clearScreenBtn = document.getElementById("clear-screen-btn");
+    const promptInput = document.getElementById("session-prompt-input");
+    const savePromptBtn = document.getElementById("save-prompt-btn");
+    const listEl = document.getElementById("submission-list");
+
+    async function fetchData(initialLoad = false) {
+      if (!pin) return;
+      try {
+        const res = await fetch("/api/submissions", {
+          headers: { "x-pin": pin }
+        });
+        if (res.status === 401) {
+          sessionStorage.removeItem("facilitator_pin");
+          pin = "";
+          loginPanel.style.display = "block";
+          dashboard.style.display = "none";
+          clearScreenBtn.style.display = "none";
+          loginError.style.display = "block";
+          loginError.textContent = "Invalid PIN. Please try again.";
+          if (pollTimer) clearInterval(pollTimer);
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.ok) return;
+
+        sessionStorage.setItem("facilitator_pin", pin);
+        loginPanel.style.display = "none";
+        dashboard.style.display = "block";
+        clearScreenBtn.style.display = "inline-flex";
+
+        if (initialLoad || document.activeElement !== promptInput) {
+          promptInput.value = data.promptTitle;
+        }
+
+        allSubmissions = data.submissions || [];
+        activeId = data.activeId;
+        render();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function render() {
+      const pending = allSubmissions.filter((s) => s.status === "pending");
+      const approved = allSubmissions.filter((s) => s.status === "approved");
+      const rejected = allSubmissions.filter((s) => s.status === "rejected");
+
+      document.getElementById("count-pending").textContent = pending.length;
+      document.getElementById("count-approved").textContent = approved.length;
+      document.getElementById("count-rejected").textContent = rejected.length;
+      document.getElementById("count-all").textContent = allSubmissions.length;
+
+      const filtered =
+        currentFilter === "all"
+          ? allSubmissions
+          : allSubmissions.filter((s) => s.status === currentFilter);
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="panel" style="text-align:center; color:var(--muted);">No submissions in this tab yet.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = filtered
+        .map((item) => {
+          const isLive = item.id === activeId;
+          const time = new Date(item.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          });
+
+          return `
+            <article class="submission-card ${isLive ? "is-live" : ""}">
+              <div class="submission-meta">
+                <div>
+                  <strong>${escapeHtml(item.sender)}</strong> &bull; ${time}
+                </div>
+                <div style="display:flex; gap:0.4rem; align-items:center;">
+                  ${isLive ? '<span class="pill live">On Monitor Now</span>' : ""}
+                  <span class="pill ${item.status}">${item.status}</span>
+                </div>
+              </div>
+              <div class="submission-text">${escapeHtml(item.text)}</div>
+              <div class="card-actions">
+                <button class="btn btn-primary" onclick="moderate('${item.id}', 'display')">
+                  Display on Monitor
+                </button>
+                ${
+                  item.status !== "approved"
+                    ? `<button class="btn btn-outline" onclick="moderate('${item.id}', 'approve')">Approve Only</button>`
+                    : ""
+                }
+                ${
+                  item.status !== "rejected"
+                    ? `<button class="btn btn-danger" onclick="moderate('${item.id}', 'reject')">Reject / Hide</button>`
+                    : `<button class="btn btn-outline" onclick="moderate('${item.id}', 'pending')">Move to Pending</button>`
+                }
+              </div>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    async function moderate(id, action) {
+      await fetch("/api/moderate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-pin": pin
+        },
+        body: JSON.stringify({ id, action })
+      });
+      fetchData();
+    }
+
+    pinForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      loginError.style.display = "none";
+      pin = pinInput.value.trim();
+      fetchData(true);
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => fetchData(false), 2000);
+    });
+
+    savePromptBtn.addEventListener("click", async () => {
+      const promptTitle = promptInput.value.trim();
+      if (!promptTitle) return;
+      await fetch("/api/prompt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-pin": pin
+        },
+        body: JSON.stringify({ promptTitle })
+      });
+      fetchData();
+    });
+
+    clearScreenBtn.addEventListener("click", () => moderate(null, "clear_screen"));
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    if (pin) {
+      fetchData(true);
+      pollTimer = setInterval(() => fetchData(false), 2000);
+    }
+  </script>
+</body>
+</html>
