@@ -29,16 +29,16 @@ body {
 
 /* Brand Logos & Footers */
 .main-logo-img {
-  height: 54px;
+  height: 80px;
   width: auto;
   object-fit: contain;
   display: block;
 }
 
 .footer-logo-img {
-  height: 44px;
+  height: 200px;
   width: auto;
-  max-width: 240px;
+  max-width: 1600px;
   object-fit: contain;
   display: block;
 }
@@ -54,7 +54,7 @@ body {
 
 /* Guest UI */
 .guest-wrapper {
-  min-height: 100vh;
+  min-height: 50vh;
   display: flex;
   flex-direction: column;
   align-items: center;
