@@ -1,0 +1,12 @@
+{
+  "name": "live-qa-system",
+  "version": "1.0.0",
+  "description": "Local live event Q&A moderation and presentation system (Guest, Facilitator, Monitor)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

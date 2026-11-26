@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Q&amp;A Monitor Display</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="monitor-body">
+  <header class="monitor-top">
+    <div class="monitor-top-left">
+      <img src="/logo.jpg" alt="Pag-ibig Church" class="main-logo-img" />
+      <div id="monitor-prompt" class="monitor-prompt">
+        Share your question or answer for today's session
+      </div>
+    </div>
+    <span class="monitor-live-tag">Live Q&amp;A</span>
+  </header>
+
+  <main id="monitor-stage" class="monitor-stage">
+    <p class="monitor-standby">Waiting for facilitator to select a response...</p>
+  </main>
+
+  <footer class="monitor-footer">
+    <span>Scan the event QR code to submit your response</span>
+    <div class="monitor-footer-right">
+      <button id="fs-btn" class="fullscreen-btn" type="button">Toggle Fullscreen</button>
+      <img src="/footer.png" alt="Co-created by TheDPG Studios" class="footer-logo-img" />
+    </div>
+  </footer>
+
+  <script>
+    const promptEl = document.getElementById("monitor-prompt");
+    const stageEl = document.getElementById("monitor-stage");
+    const fsBtn = document.getElementById("fs-btn");
+    let lastRenderedKey = "";
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function syncMonitor() {
+      try {
+        const res = await fetch("/api/active");
+        const data = await res.json();
+        if (!data.ok) return;
+
+        promptEl.textContent = data.promptTitle || "";
+
+        const key = data.activeItem
+          ? `${data.activeItem.id}:${data.activeItem.text}:${data.activeItem.sender}`
+          : "EMPTY";
+
+        if (key === lastRenderedKey) return;
+        lastRenderedKey = key;
+
+        if (data.activeItem) {
+          stageEl.innerHTML = `
+            <blockquote class="monitor-quote">&ldquo;${escapeHtml(data.activeItem.text)}&rdquo;</blockquote>
+            <div class="monitor-author">&mdash; ${escapeHtml(data.activeItem.sender)}</div>
+          `;
+        } else {
+          stageEl.innerHTML = `
+            <p class="monitor-standby">Waiting for facilitator to select a response...</p>
+          `;
+        }
+      } catch (err) {
+        console.error("Monitor sync error:", err);
+      }
+    }
+
+    fsBtn.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    syncMonitor();
+    setInterval(syncMonitor, 1500);
+  </script>
+</body>
+</html>
