@@ -124,7 +124,7 @@ app.post("/api/prompt", (req, res) => {
   res.json({ ok: true, promptTitle: state.promptTitle });
 });
 
-// Facilitator: moderate entries or push to Monitor
+// Facilitator: moderate entries, remove/delete, or push to Monitor
 app.post("/api/moderate", (req, res) => {
   if (!checkPin(req, res)) return;
   const { id, action } = req.body;
@@ -135,12 +135,19 @@ app.post("/api/moderate", (req, res) => {
     return res.json({ ok: true, activeId: null });
   }
 
-  const item = state.submissions.find((entry) => entry.id === id);
-  if (!item) {
+  const itemIndex = state.submissions.findIndex((entry) => entry.id === id);
+  if (itemIndex === -1) {
     return res.status(404).json({ ok: false, error: "Submission not found." });
   }
 
-  if (action === "display") {
+  const item = state.submissions[itemIndex];
+
+  if (action === "delete") {
+    state.submissions.splice(itemIndex, 1);
+    if (state.activeId === id) {
+      state.activeId = null;
+    }
+  } else if (action === "display") {
     item.status = "approved";
     state.activeId = item.id;
   } else if (action === "approve") {
