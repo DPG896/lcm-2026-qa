@@ -180,6 +180,9 @@
                     ? `<button class="btn btn-danger" onclick="moderate('${item.id}', 'reject')">Reject / Hide</button>`
                     : `<button class="btn btn-outline" onclick="moderate('${item.id}', 'pending')">Move to Pending</button>`
                 }
+                <button class="btn btn-danger" onclick="deleteSubmission('${item.id}')">
+                  Delete
+                </button>
               </div>
             </article>
           `;
@@ -197,6 +200,10 @@
         body: JSON.stringify({ id, action })
       });
       fetchData();
+    }
+
+    async function deleteSubmission(id) {
+      await moderate(id, "delete");
     }
 
     pinForm.addEventListener("submit", (e) => {
